@@ -3,13 +3,12 @@ from bs4 import BeautifulSoup
 import json
 import os
 
-# Cloudflare veya bot engeli olmayan, doğrudan veri çeken açık RSS kaynağı
+# Engelsiz ve doğrudan veri çeken açık RSS kaynağı
 RSS_URL = "https://www.memurlar.net/xml/news.xml"
 
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
 def paylasilanlari_yukle():
-    """Daha önce paylaşılan ilanların ID/link listesini yükler."""
     if os.path.exists(DOSYA_PAYLASILANLAR):
         try:
             with open(DOSYA_PAYLASILANLAR, "r", encoding="utf-8") as f:
@@ -19,13 +18,11 @@ def paylasilanlari_yukle():
     return []
 
 def paylasilanlari_kaydet(paylasilanlar_listesi):
-    """Paylaşılan ilanları JSON dosyasına kaydeder."""
     with open(DOSYA_PAYLASILANLAR, "w", encoding="utf-8") as f:
         json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
 
 def yeni_ilani_bul():
-    """RSS akışını tarar ve daha önce paylaşılmamış ilk yeni ilanı döndürür."""
-    print("[*] Alternatif engelsiz kaynak taranıyor...")
+    print("[*] Engelsiz kaynak taranıyor...")
     
     try:
         response = requests.get(RSS_URL, timeout=15)
@@ -36,7 +33,6 @@ def yeni_ilani_bul():
             return None
             
         print("[+] Kaynaktan veriler başarıyla alındı, analiz ediliyor...")
-        # RSS verisini XML olarak parse ediyoruz
         soup = BeautifulSoup(response.content, 'xml')
         items = soup.find_all('item')
         
@@ -47,7 +43,6 @@ def yeni_ilani_bul():
             baslik = item.title.text if item.title else ""
             link = item.link.text if item.link else ""
             
-            # Sadece ilan veya alım içeren başlıkları filtreleyebiliriz (isteğe bağlı)
             if not link or len(baslik) < 10:
                 continue
                 
