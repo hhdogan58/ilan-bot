@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import json
 import os
 
-URL = "https://kamuilan.sbb.gov.tr/"
+URL = "https://ilan.memurlar.net/"
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
 def paylasilanlari_yukle():
@@ -20,17 +20,17 @@ def paylasilanlari_kaydet(paylasilanlar_listesi):
         json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
 
 def yeni_ilani_bul():
-    print("[*] Resmi SBB İlan Portalı (kamuilan.sbb.gov.tr) taranıyor...")
+    print("[*] https://ilan.memurlar.net/ ana sayfası taranıyor...")
     
     try:
         response = requests.get(URL, impersonate="chrome", timeout=25)
-        print(f"[i] SBB Sunucu Yanıt Kodu: {response.status_code}")
+        print(f"[i] Sunucu Yanıt Kodu: {response.status_code}")
         
         if response.status_code != 200:
-            print(f"[-] SBB sayfasına erişilemedi! Kod: {response.status_code}")
+            print(f"[-] Sayfaya erişilemedi! Kod: {response.status_code}")
             return None
             
-        print("[+] SBB ana sayfası başarıyla getirildi, ilanlar analiz ediliyor...")
+        print("[+] Sayfa başarıyla getirildi, ilanlar analiz ediliyor...")
         soup = BeautifulSoup(response.text, 'html.parser')
         
         linkler = soup.find_all('a', href=True)
@@ -43,18 +43,22 @@ def yeni_ilani_bul():
             if not link or len(baslik) < 15:
                 continue
                 
-            if 'ilan' in link.lower() or 'detay' in link.lower() or 'Goster' in link:
+            if '/ilan/' in link.lower() or 'detay' in link.lower():
+                # Kesin ve temiz URL oluşturma (Çift domain/slash hatası önleme)
                 if link.startswith('http'):
                     ilan_url = link
                 elif link.startswith('/'):
-                    ilan_url = f"https://kamuilan.sbb.gov.tr{link}"
+                    ilan_url = f"https://ilan.memurlar.net{link}"
                 else:
-                    ilan_url = f"https://kamuilan.sbb.gov.tr/{link}"
-                    
+                    ilan_url = f"https://ilan.memurlar.net/{link}"
+                
+                # Eğer link içinde mükerrer domain oluştuysa temizle
+                ilan_url = ilan_url.replace("https://ilan.memurlar.net//ilan.memurlar.net/", "https://ilan.memurlar.net/")
+                
                 ilan_id = ilan_url
                 
                 if ilan_id not in paylasilanlar:
-                    print(f"[+] SBB'de yeni ilan bulundu: {baslik[:60]}...")
+                    print(f"[+] Yeni ilan bulundu: {baslik[:60]}...")
                     gorsel_url = "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=1080"
                     
                     return {
@@ -62,15 +66,15 @@ def yeni_ilani_bul():
                         "baslik": baslik,
                         "link": ilan_url,
                         "gorsel": gorsel_url,
-                        "kurum": "Resmi Kamu Kurumu (SBB)",
+                        "kurum": "Kamu Kurumu",
                         "tarih": "Güncel"
                     }
                 
-        print("[-] SBB'de paylaşılacak yeni ilan bulunamadı.")
+        print("[-] Paylaşılacak yeni ilan bulunamadı.")
         return None
 
     except Exception as e:
-        print(f"[-] SBB bağlantı hatası oluştu: {e}")
+        print(f"[-] Bağlantı hatası oluştu: {e}")
         return None
 
 if __name__ == "__main__":
