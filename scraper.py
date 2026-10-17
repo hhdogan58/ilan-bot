@@ -3,16 +3,13 @@ from bs4 import BeautifulSoup
 import json
 import os
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Connection": "keep-alive"
-}
+# Cloudflare veya bot engeli olmayan, doğrudan veri çeken açık RSS kaynağı
+RSS_URL = "https://www.memurlar.net/xml/news.xml"
 
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
 def paylasilanlari_yukle():
+    """Daha önce paylaşılan ilanların ID/link listesini yükler."""
     if os.path.exists(DOSYA_PAYLASILANLAR):
         try:
             with open(DOSYA_PAYLASILANLAR, "r", encoding="utf-8") as f:
@@ -21,39 +18,37 @@ def paylasilanlari_yukle():
             return []
     return []
 
+def paylasilanlari_kaydet(paylasilanlar_listesi):
+    """Paylaşılan ilanları JSON dosyasına kaydeder."""
+    with open(DOSYA_PAYLASILANLAR, "w", encoding="utf-8") as f:
+        json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
+
 def yeni_ilani_bul():
-    url = "https://kamuilan.sbb.gov.tr"
-    print("[*] SBB ilanları taranıyor...")
+    """RSS akışını tarar ve daha önce paylaşılmamış ilk yeni ilanı döndürür."""
+    print("[*] Alternatif engelsiz kaynak taranıyor...")
     
     try:
-        response = requests.get(url, headers=HEADERS, timeout=20)
-        # HTTP hata kodunu detaylı görmek için raise_for_status yerine status kodunu kontrol edelim:
+        response = requests.get(RSS_URL, timeout=15)
         print(f"[i] Sunucu Yanıt Kodu: {response.status_code}")
         
         if response.status_code != 200:
-            print(f"[-] Site reddetti veya engelledi! Kod: {response.status_code}")
+            print(f"[-] Kaynağa erişilemedi! Kod: {response.status_code}")
             return None
             
-        print("[+] Siteye başarıyla erişildi, içerik analiz ediliyor...")
-        soup = BeautifulSoup(response.text, 'html.parser')
+        print("[+] Kaynaktan veriler başarıyla alındı, analiz ediliyor...")
+        # RSS verisini XML olarak parse ediyoruz
+        soup = BeautifulSoup(response.content, 'xml')
+        items = soup.find_all('item')
         
-        # Sitedeki tüm linkleri ve başlıkları test amaçlı kontrol edelim
-        linkler = soup.find_all('a', href=True)
-        print(f"[i] Sayfada toplam {len(linkler)} adet bağlantı bulundu.")
-        
+        print(f"[i] Akışta toplam {len(items)} adet içerik bulundu.")
         paylasilanlar = paylasilanlari_yukle()
         
-        for kart in linkler:
-            baslik = kart.get_text(strip=True)
-            link = kart.get('href')
+        for item in items:
+            baslik = item.title.text if item.title else ""
+            link = item.link.text if item.link else ""
             
-            # İlan niteliği taşıyan anlamlı bir başlık ve uzunluk arayalım
-            if not link or len(baslik) < 20:
-                continue
-                
-            if link.startswith('/'):
-                link = f"https://kamuilan.sbb.gov.tr{link}"
-            elif not link.startswith('http'):
+            # Sadece ilan veya alım içeren başlıkları filtreleyebiliriz (isteğe bağlı)
+            if not link or len(baslik) < 10:
                 continue
                 
             ilan_id = link
@@ -64,7 +59,7 @@ def yeni_ilani_bul():
                     "id": ilan_id,
                     "baslik": baslik,
                     "link": link,
-                    "kurum": "Kamu Kurumu",
+                    "kurum": "Kamu / Memur Alımı",
                     "tarih": "Güncel"
                 }
                 
