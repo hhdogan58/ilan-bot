@@ -1,9 +1,7 @@
-from curl_cffi import requests
-from bs4 import BeautifulSoup
 import json
 import os
+from playwright.sync_api import sync_playwright
 
-# Resmi SBB İlan Portalı
 URL = "https://kamuilan.sbb.gov.tr/"
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
@@ -21,48 +19,44 @@ def paylasilanlari_kaydet(paylasilanlar_listesi):
         json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
 
 def yeni_ilani_bul():
-    print("[*] Resmi SBB İlan Portalı (kamuilan.sbb.gov.tr) taranıyor...")
+    print("[*] Playwright ile gerçek tarayıcı başlatılıyor ve SBB taranıyor...")
     
-    # SBB Cloudflare korumasını atlatmak için zenginleştirilmiş tarayıcı başlıkları
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Referer": "https://kamuilan.sbb.gov.tr/",
-        "Connection": "keep-alive"
-    }
-    
-    try:
-        # curl_cffi ile Chrome TLS parmak izi taklidi ve özel başlıklar
-        response = requests.get(URL, headers=headers, impersonate="chrome120", timeout=30)
-        print(f"[i] SBB Sunucu Yanıt Kodu: {response.status_code}")
+    with sync_playwright() as p:
+        # Headless (arayüzsüz) tarayıcı açılıyor
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            viewport={"width": 1280, "height": 800}
+        )
+        page = context.new_page()
         
-        if response.status_code != 200:
-            print(f"[-] SBB sayfasına erişilemedi! Kod: {response.status_code}")
-            return None
+        try:
+            print(f"[i] S sayfasına gidiliyor: {URL}")
+            page.goto(URL, timeout=60000, wait_until="networkidle")
             
-        print("[+] SBB ana sayfası başarıyla getirildi, ilanlar analiz ediliyor...")
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        linkler = soup.find_all('a', href=True)
-        paylasilanlar = paylasilanlari_yukle()
-        
-        for link_tag in linkler:
-            baslik = link_tag.get_text(strip=True)
-            link = link_tag['href']
+            # Cloudflare veya JS yükleme ekranı varsa birkaç saniye bekle
+            page.wait_for_timeout(5000)
             
-            if not link or len(baslik) < 15:
-                continue
+            print("[+] Sayfa yüklendi, ilanlar analiz ediliyor...")
+            
+            # Sayfadaki tüm bağlantıları ve metinleri topla
+            ilanlar_data = page.evaluate("""() => {
+                const links = Array.from(document.querySelectorAll('a'));
+                return links.map(a => ({
+                    baslik: a.innerText.trim(),
+                    href: a.href
+                })).filter(item => item.baslik.length > 15 && (item.href.includes('ilan') || item.href.includes('detay') || item.href.includes('Goster')));
+            }""")
+            
+            browser.close()
+            
+            paylasilanlar = paylasilanlari_yukle()
+            
+            for ilan in ilanlar_data:
+                baslik = ilan['baslik']
+                link = ilan['href']
                 
-            if 'ilan' in link.lower() or 'detay' in link.lower() or 'Goster' in link or ' ilan ' in link.lower():
-                if link.startswith('http'):
-                    ilan_url = link
-                elif link.startswith('/'):
-                    ilan_url = f"https://kamuilan.sbb.gov.tr{link}"
-                else:
-                    ilan_url = f"https://kamuilan.sbb.gov.tr/{link}"
-                    
-                ilan_id = ilan_url
+                ilan_id = link
                 
                 if ilan_id not in paylasilanlar:
                     print(f"[+] SBB'de yeni ilan bulundu: {baslik[:60]}...")
@@ -71,18 +65,22 @@ def yeni_ilani_bul():
                     return {
                         "id": ilan_id,
                         "baslik": baslik,
-                        "link": ilan_url,
+                        "link": link,
                         "gorsel": gorsel_url,
                         "kurum": "Resmi Kamu Kurumu (SBB)",
                         "tarih": "Güncel"
                     }
-                
-        print("[-] SBB'de paylaşılacak yeni ilan bulunamadı.")
-        return None
+                    
+            print("[-] SBB'de paylaşılacak yeni ilan bulunamadı.")
+            return None
 
-    except Exception as e:
-        print(f"[-] SBB bağlantı hatası oluştu: {e}")
-        return None
+        except Exception as e:
+            print(f"[-] Playwright tarama hatası: {e}")
+            try:
+                browser.close()
+            except:
+                pass
+            return None
 
 if __name__ == "__main__":
     yeni_ilani_bul()
