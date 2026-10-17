@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import json
 import os
 
-RSS_URL = "https://www.memurlar.net/xml/news.xml"
+URL = "https://ilan.memurlar.net/"
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
 def paylasilanlari_yukle():
@@ -20,42 +20,49 @@ def paylasilanlari_kaydet(paylasilanlar_listesi):
         json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
 
 def yeni_ilani_bul():
-    print("[*] Tarayıcı TLS imzasıyla (Cloudflare bypass) kaynak taranıyor...")
+    print("[*] https://ilan.memurlar.net/ ana sayfası taranıyor...")
     
     try:
-        # impersonate="chrome" ile gerçek bir Chrome tarayıcısının SSL imzasını taklit ediyoruz
-        response = requests.get(RSS_URL, impersonate="chrome", timeout=20)
+        response = requests.get(URL, impersonate="chrome", timeout=20)
         print(f"[i] Sunucu Yanıt Kodu: {response.status_code}")
         
         if response.status_code != 200:
-            print(f"[-] Kaynağa erişilemedi! Kod: {response.status_code}")
+            print(f"[-] Sayfaya erişilemedi! Kod: {response.status_code}")
             return None
             
-        print("[+] Kaynaktan veriler başarıyla alındı, analiz ediliyor...")
-        soup = BeautifulSoup(response.content, 'xml')
-        items = soup.find_all('item')
+        print("[+] Sayfa başarıyla getirildi, ilanlar analiz ediliyor...")
+        soup = BeautifulSoup(response.text, 'html.parser')
         
-        print(f"[i] Akışta toplam {len(items)} adet içerik bulundu.")
+        # İlan ana sayfasındaki tüm linkleri tarıyoruz
+        linkler = soup.find_all('a', href=True)
         paylasilanlar = paylasilanlari_yukle()
         
-        for item in items:
-            baslik = item.title.text if item.title else ""
-            link = item.link.text if item.link else ""
+        for link_tag in linkler:
+            baslik = link_tag.get_text(strip=True)
+            link = link_tag['href']
             
-            if not link or len(baslik) < 10:
+            # Anlamlı başlık ve ilan içeren bağlantıları filtrele
+            if not link or len(baslik) < 15:
                 continue
                 
-            ilan_id = link
-            
-            if ilan_id not in paylasilanlar:
-                print(f"[+] Yeni ilan bulundu: {baslik[:60]}...")
-                return {
-                    "id": ilan_id,
-                    "baslik": baslik,
-                    "link": link,
-                    "kurum": "Kamu / Memur Alımı",
-                    "tarih": "Güncel"
-                }
+            # İlan detay sayfalarına ait link yapıları
+            if '/ilan/' in link.lower() or 'detay' in link.lower():
+                if link.startswith('/'):
+                    link = f"https://ilan.memurlar.net{link}"
+                elif not link.startswith('http'):
+                    continue
+                    
+                ilan_id = link
+                
+                if ilan_id not in paylasilanlar:
+                    print(f"[+] Yeni ilan bulundu: {baslik[:60]}...")
+                    return {
+                        "id": ilan_id,
+                        "baslik": baslik,
+                        "link": link,
+                        "kurum": "Kamu Kurumu",
+                        "tarih": "Güncel"
+                    }
                 
         print("[-] Paylaşılacak yeni ilan bulunamadı.")
         return None
