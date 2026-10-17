@@ -3,7 +3,8 @@ from bs4 import BeautifulSoup
 import json
 import os
 
-URL = "https://ilan.memurlar.net/"
+# Resmi SBB İlan Portalı
+URL = "https://kamuilan.sbb.gov.tr/"
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
 def paylasilanlari_yukle():
@@ -20,17 +21,27 @@ def paylasilanlari_kaydet(paylasilanlar_listesi):
         json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
 
 def yeni_ilani_bul():
-    print("[*] https://ilan.memurlar.net/ ana sayfası taranıyor...")
+    print("[*] Resmi SBB İlan Portalı (kamuilan.sbb.gov.tr) taranıyor...")
+    
+    # SBB Cloudflare korumasını atlatmak için zenginleştirilmiş tarayıcı başlıkları
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": "https://kamuilan.sbb.gov.tr/",
+        "Connection": "keep-alive"
+    }
     
     try:
-        response = requests.get(URL, impersonate="chrome", timeout=25)
-        print(f"[i] Sunucu Yanıt Kodu: {response.status_code}")
+        # curl_cffi ile Chrome TLS parmak izi taklidi ve özel başlıklar
+        response = requests.get(URL, headers=headers, impersonate="chrome120", timeout=30)
+        print(f"[i] SBB Sunucu Yanıt Kodu: {response.status_code}")
         
         if response.status_code != 200:
-            print(f"[-] Sayfaya erişilemedi! Kod: {response.status_code}")
+            print(f"[-] SBB sayfasına erişilemedi! Kod: {response.status_code}")
             return None
             
-        print("[+] Sayfa başarıyla getirildi, ilanlar analiz ediliyor...")
+        print("[+] SBB ana sayfası başarıyla getirildi, ilanlar analiz ediliyor...")
         soup = BeautifulSoup(response.text, 'html.parser')
         
         linkler = soup.find_all('a', href=True)
@@ -43,22 +54,18 @@ def yeni_ilani_bul():
             if not link or len(baslik) < 15:
                 continue
                 
-            if '/ilan/' in link.lower() or 'detay' in link.lower():
-                # Kesin ve temiz URL oluşturma (Çift domain/slash hatası önleme)
+            if 'ilan' in link.lower() or 'detay' in link.lower() or 'Goster' in link or ' ilan ' in link.lower():
                 if link.startswith('http'):
                     ilan_url = link
                 elif link.startswith('/'):
-                    ilan_url = f"https://ilan.memurlar.net{link}"
+                    ilan_url = f"https://kamuilan.sbb.gov.tr{link}"
                 else:
-                    ilan_url = f"https://ilan.memurlar.net/{link}"
-                
-                # Eğer link içinde mükerrer domain oluştuysa temizle
-                ilan_url = ilan_url.replace("https://ilan.memurlar.net//ilan.memurlar.net/", "https://ilan.memurlar.net/")
-                
+                    ilan_url = f"https://kamuilan.sbb.gov.tr/{link}"
+                    
                 ilan_id = ilan_url
                 
                 if ilan_id not in paylasilanlar:
-                    print(f"[+] Yeni ilan bulundu: {baslik[:60]}...")
+                    print(f"[+] SBB'de yeni ilan bulundu: {baslik[:60]}...")
                     gorsel_url = "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=1080"
                     
                     return {
@@ -66,15 +73,15 @@ def yeni_ilani_bul():
                         "baslik": baslik,
                         "link": ilan_url,
                         "gorsel": gorsel_url,
-                        "kurum": "Kamu Kurumu",
+                        "kurum": "Resmi Kamu Kurumu (SBB)",
                         "tarih": "Güncel"
                     }
                 
-        print("[-] Paylaşılacak yeni ilan bulunamadı.")
+        print("[-] SBB'de paylaşılacak yeni ilan bulunamadı.")
         return None
 
     except Exception as e:
-        print(f"[-] Bağlantı hatası oluştu: {e}")
+        print(f"[-] SBB bağlantı hatası oluştu: {e}")
         return None
 
 if __name__ == "__main__":
