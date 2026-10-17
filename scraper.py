@@ -3,25 +3,15 @@ from bs4 import BeautifulSoup
 import json
 import os
 
-# Cloudflare / WAF engellerini aşmak için tam tarayıcı başlıkları
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-    "Cache-Control": "max-age=0"
-}
+# Hedef RSS adresi
+TARGET_URL = "https://www.memurlar.net/xml/news.xml"
+# GitHub Actions IP engellerini (403) tamamen bypass eden açık proxy servisi
+PROXY_URL = f"https://api.allorigins.win/raw?url={TARGET_URL}"
 
-RSS_URL = "https://www.memurlar.net/xml/news.xml"
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
 def paylasilanlari_yukle():
+    """Daha önce paylaşılan ilanların ID/link listesini yükler."""
     if os.path.exists(DOSYA_PAYLASILANLAR):
         try:
             with open(DOSYA_PAYLASILANLAR, "r", encoding="utf-8") as f:
@@ -31,14 +21,15 @@ def paylasilanlari_yukle():
     return []
 
 def paylasilanlari_kaydet(paylasilanlar_listesi):
+    """Paylaşılan ilanları JSON dosyasına kaydeder."""
     with open(DOSYA_PAYLASILANLAR, "w", encoding="utf-8") as f:
         json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
 
 def yeni_ilani_bul():
-    print("[*] Engelsiz kaynak taranıyor...")
+    print("[*] Proxy üzerinden engelsiz kaynak taranıyor...")
     
     try:
-        response = requests.get(RSS_URL, headers=HEADERS, timeout=15)
+        response = requests.get(PROXY_URL, timeout=20)
         print(f"[i] Sunucu Yanıt Kodu: {response.status_code}")
         
         if response.status_code != 200:
