@@ -3,9 +3,13 @@ from bs4 import BeautifulSoup
 import json
 import os
 
-# Engelsiz ve doğrudan veri çeken açık RSS kaynağı
-RSS_URL = "https://www.memurlar.net/xml/news.xml"
+# Gerçek bir tarayıcı kimliği (403 engelini aşmak için)
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7"
+}
 
+RSS_URL = "https://www.memurlar.net/xml/news.xml"
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
 def paylasilanlari_yukle():
@@ -25,7 +29,7 @@ def yeni_ilani_bul():
     print("[*] Engelsiz kaynak taranıyor...")
     
     try:
-        response = requests.get(RSS_URL, timeout=15)
+        response = requests.get(RSS_URL, headers=HEADERS, timeout=15)
         print(f"[i] Sunucu Yanıt Kodu: {response.status_code}")
         
         if response.status_code != 200:
