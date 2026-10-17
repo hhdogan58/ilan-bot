@@ -19,44 +19,6 @@ def paylasilanlari_kaydet(paylasilanlar_listesi):
     with open(DOSYA_PAYLASILANLAR, "w", encoding="utf-8") as f:
         json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
 
-def ilan_detay_gorselini_bul(detay_url):
-    """İlanın detay sayfasına giderek sayfadaki resmi / afişi bulur."""
-    try:
-        print(f"[*] İlan detay sayfası taranıyor: {detay_url}")
-        response = requests.get(detay_url, impersonate="chrome", timeout=15)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # İlan detay sayfasındaki içerik alanında yer alan görselleri arıyoruz
-            # Genellikle ilan detay fotoğrafları içerik div'leri içinde yer alır
-            img_tag = soup.find('div', class_='ilan-detay') or soup.find('article') or soup.find('main')
-            if img_tag:
-                img = img_tag.find('img', src=True)
-                if img:
-                    gorsel_url = img['src']
-                    if gorsel_url.startswith('/'):
-                        gorsel_url = f"https://ilan.memurlar.net{gorsel_url}"
-                    elif not gorsel_url.startswith('http'):
-                        gorsel_url = f"https://{gorsel_url}"
-                    print(f"[+] İlanın orijinal görseli bulundu: {gorsel_url}")
-                    return gorsel_url
-                    
-            # Alternatif olarak sayfadaki ilk büyük resmi seç
-            all_imgs = soup.find_all('img', src=True)
-            for img in all_imgs:
-                src = img['src']
-                if 'ilan' in src.lower() or 'upload' in src.lower() or 'images' in src.lower():
-                    if src.startswith('/'):
-                        return f"https://ilan.memurlar.net{src}"
-                    elif src.startswith('http'):
-                        return src
-                        
-    except Exception as e:
-        print(f"[-] Detay görseli alınırken hata oluştu: {e}")
-        
-    # Eğer detayda görsel bulunamazsa varsayılan şık bir kurumsal görsel dön
-    return "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=1080"
-
 def yeni_ilani_bul():
     print("[*] https://ilan.memurlar.net/ ana sayfası taranıyor...")
     
@@ -82,24 +44,28 @@ def yeni_ilani_bul():
                 continue
                 
             if '/ilan/' in link.lower() or 'detay' in link.lower():
-                if link.startswith('/'):
-                    link = f"https://ilan.memurlar.net{link}"
-                elif not link.startswith('http'):
-                    continue
+                # Linkin tam ve doğru oluşturulduğundan emin oluyoruz
+                if link.startswith('http'):
+                    ilan_url = link
+                elif link.startswith('/'):
+                    ilan_url = f"https://ilan.memurlar.net{link}"
+                else:
+                    ilan_url = f"https://ilan.memurlar.net/{link}"
                     
-                ilan_id = link
+                ilan_id = ilan_url
                 
                 if ilan_id not in paylasilanlar:
                     print(f"[+] Yeni ilan bulundu: {baslik[:60]}...")
                     
-                    # İlanın kendi içindeki gerçek görseli çekiyoruz
-                    gercek_gorsel_url = ilan_detay_gorselini_bul(link)
+                    # Şimdilik stabil olması için şık kurumsal varsayılan görsel kullanıyoruz
+                    # (İleride detay sayfadan görsel çekme kısmı eklenebilir)
+                    gorsel_url = "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=1080"
                     
                     return {
                         "id": ilan_id,
                         "baslik": baslik,
-                        "link": link,
-                        "gorsel": gercek_gorsel_url,
+                        "link": ilan_url,
+                        "gorsel": gorsel_url,
                         "kurum": "Kamu Kurumu",
                         "tarih": "Güncel"
                     }

@@ -39,10 +39,11 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git pull origin main --rebase || echo "Pull atlandı"
           if [ -f paylasilanlar.json ]; then
             git add paylasilanlar.json
             git commit -m "Chore: Paylaşılan ilan geçmişi güncellendi [skip ci]" || echo "Değişiklik yok"
-            git push
+            git push origin main
           else
             echo "paylasilanlar.json henüz oluşturulmadı, atlanıyor."
           fi
