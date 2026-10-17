@@ -2,11 +2,11 @@ name: Kamu İlan Otomatik Paylaşım Botu
 
 on:
   schedule:
-    - cron: '0 * * * *'
-  workflow_dispatch:
+    - cron: '0 * * * *'  # Her saat başı otomatik çalışır
+  workflow_dispatch:      # Manuel tetiklemeye izin verir
 
 permissions:
-  contents: write  # <-- Depoya yazma izni burada veriliyor
+  contents: write
 
 jobs:
   build-and-post:
@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Repoyu Klonla
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Python Ortamını Kur
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -34,9 +34,15 @@ jobs:
           python main.py
 
       - name: Paylaşılan İlan Geçmişini Güncelle ve Kaydet
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add paylasilanlar.json
-          git commit -m "Chore: Paylaşılan ilan geçmişi güncellendi [skip ci]" || exit 0
-          git push
+          if [ -f paylasilanlar.json ]; then
+            git add paylasilanlar.json
+            git commit -m "Chore: Paylaşılan ilan geçmişi güncellendi [skip ci]" || echo "Değişiklik yok"
+            git push
+          else
+            echo "paylasilanlar.json henüz oluşturulmadı, atlanıyor."
+          fi
