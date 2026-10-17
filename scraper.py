@@ -3,9 +3,8 @@ from bs4 import BeautifulSoup
 import json
 import os
 
-# Gerçek bir Windows Chrome tarayıcısının kimlik bilgileri (Cloudflare / WAF engellerini aşmak için)
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Connection": "keep-alive"
@@ -14,7 +13,6 @@ HEADERS = {
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
 def paylasilanlari_yukle():
-    """Daha önce paylaşılan ilanların ID/link listesini yükler."""
     if os.path.exists(DOSYA_PAYLASILANLAR):
         try:
             with open(DOSYA_PAYLASILANLAR, "r", encoding="utf-8") as f:
@@ -23,66 +21,59 @@ def paylasilanlari_yukle():
             return []
     return []
 
-def paylasilanlari_kaydet(paylasilanlar_listesi):
-    """Paylaşılan ilanları JSON dosyasına kaydeder."""
-    with open(DOSYA_PAYLASILANLAR, "w", encoding="utf-8") as f:
-        json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
-
 def yeni_ilani_bul():
-    """SBB ilan sitesini tarar ve daha önce paylaşılmamış ilk yeni ilanı döndürür."""
     url = "https://kamuilan.sbb.gov.tr"
     print("[*] SBB ilanları taranıyor...")
     
     try:
         response = requests.get(url, headers=HEADERS, timeout=20)
-        response.raise_for_status()
-        print("[+] Siteye başarıyla erişildi, içerik analiz ediliyor...")
+        # HTTP hata kodunu detaylı görmek için raise_for_status yerine status kodunu kontrol edelim:
+        print(f"[i] Sunucu Yanıt Kodu: {response.status_code}")
         
+        if response.status_code != 200:
+            print(f"[-] Site reddetti veya engelledi! Kod: {response.status_code}")
+            return None
+            
+        print("[+] Siteye başarıyla erişildi, içerik analiz ediliyor...")
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # SİTENİN HTML YAPISINA GÖRE GÜNCELLENECEK ALAN:
-        # Sitedeki ilan kartlarını/satırlarını seçen CSS seçici (Örn: div.ilan-item, tr.ilan-row vb.)
-        # Buradaki etiketleri sitenin güncel HTML yapısına göre doğrulayabilirsiniz.
-        ilan_kartlari = soup.find_all('div', class_='ilan-item') # veya 'tr', 'a' vb.
+        # Sitedeki tüm linkleri ve başlıkları test amaçlı kontrol edelim
+        linkler = soup.find_all('a', href=True)
+        print(f"[i] Sayfada toplam {len(linkler)} adet bağlantı bulundu.")
         
-        if not ilan_kartlari:
-            # Alternatif genel arama denemesi (Eğer özel class bulunamazsa bağlantıları tarar)
-            ilan_kartlari = soup.find_all('a', href=True)
-
         paylasilanlar = paylasilanlari_yukle()
         
-        for kart in ilan_kartlari:
-            # İlan başlığı ve detay linkini çekme mantığı
+        for kart in linkler:
             baslik = kart.get_text(strip=True)
-            link = kart.get('href') if kart.name == 'a' else (kart.find('a')['href'] if kart.find('a') else None)
+            link = kart.get('href')
             
-            if not link or len(baslik) < 15:
+            # İlan niteliği taşıyan anlamlı bir başlık ve uzunluk arayalım
+            if not link or len(baslik) < 20:
                 continue
                 
-            # Eğer link tam adres değilse tamamla
             if link.startswith('/'):
                 link = f"https://kamuilan.sbb.gov.tr{link}"
+            elif not link.startswith('http'):
+                continue
                 
-            # Benzersiz bir ID olarak linki veya başlığı kullanalım
             ilan_id = link
             
             if ilan_id not in paylasilanlar:
-                print([+] Yeni ilan bulundu: {baslik[:50]}...)
+                print(f"[+] Yeni ilan bulundu: {baslik[:60]}...")
                 return {
                     "id": ilan_id,
                     "baslik": baslik,
                     "link": link,
-                    "kurum": "Kamu Kurumu", # Siteden çekilen yapıya göre detaylandırılabilir
+                    "kurum": "Kamu Kurumu",
                     "tarih": "Güncel"
                 }
                 
-        print("[-] Paylaşılacak yeni ilan bulunamadı (Tüm ilanlar zaten paylaşılmış).")
+        print("[-] Paylaşılacak yeni ilan bulunamadı.")
         return None
 
     except Exception as e:
-        print(f"[-] Siteye erişilemedi veya hata oluştu: {e}")
+        print(f"[-] Bağlantı hatası oluştu: {e}")
         return None
 
 if __name__ == "__main__":
-    # Manuel test için
     yeni_ilani_bul()
