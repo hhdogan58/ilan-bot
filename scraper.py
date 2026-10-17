@@ -1,17 +1,12 @@
-import requests
+from curl_cffi import requests
 from bs4 import BeautifulSoup
 import json
 import os
 
-# Hedef RSS adresi
-TARGET_URL = "https://www.memurlar.net/xml/news.xml"
-# GitHub Actions IP engellerini (403) tamamen bypass eden açık proxy servisi
-PROXY_URL = f"https://api.allorigins.win/raw?url={TARGET_URL}"
-
+RSS_URL = "https://www.memurlar.net/xml/news.xml"
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
 def paylasilanlari_yukle():
-    """Daha önce paylaşılan ilanların ID/link listesini yükler."""
     if os.path.exists(DOSYA_PAYLASILANLAR):
         try:
             with open(DOSYA_PAYLASILANLAR, "r", encoding="utf-8") as f:
@@ -21,15 +16,15 @@ def paylasilanlari_yukle():
     return []
 
 def paylasilanlari_kaydet(paylasilanlar_listesi):
-    """Paylaşılan ilanları JSON dosyasına kaydeder."""
     with open(DOSYA_PAYLASILANLAR, "w", encoding="utf-8") as f:
         json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
 
 def yeni_ilani_bul():
-    print("[*] Proxy üzerinden engelsiz kaynak taranıyor...")
+    print("[*] Tarayıcı TLS imzasıyla (Cloudflare bypass) kaynak taranıyor...")
     
     try:
-        response = requests.get(PROXY_URL, timeout=20)
+        # impersonate="chrome" ile gerçek bir Chrome tarayıcısının SSL imzasını taklit ediyoruz
+        response = requests.get(RSS_URL, impersonate="chrome", timeout=20)
         print(f"[i] Sunucu Yanıt Kodu: {response.status_code}")
         
         if response.status_code != 200:
