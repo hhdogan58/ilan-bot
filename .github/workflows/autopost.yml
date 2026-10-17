@@ -2,9 +2,11 @@ name: Kamu İlan Otomatik Paylaşım Botu
 
 on:
   schedule:
-    # Her saat başı otomatik çalışır (Cron Job)
     - cron: '0 * * * *'
-  workflow_dispatch: # İstediğinde GitHub paneli üzerinden manuel çalıştırmak için
+  workflow_dispatch:
+
+permissions:
+  contents: write  # <-- Depoya yazma izni burada veriliyor
 
 jobs:
   build-and-post:
