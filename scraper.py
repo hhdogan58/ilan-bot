@@ -19,10 +19,10 @@ def paylasilanlari_kaydet(paylasilanlar_listesi):
         json.dump(paylasilanlar_listesi, f, ensure_ascii=False, indent=4)
 
 def yeni_ilani_bul():
-    print("[*] Playwright ile gerçek tarayıcı başlatılıyor ve SBB taranıyor...")
+    print("[*] Playwright ile gerçek tarayıcı (Chromium) başlatılıyor...")
     
     with sync_playwright() as p:
-        # Headless (arayüzsüz) tarayıcı açılıyor
+        # Tarayıcıyı arka planda (headless) açıyoruz
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -31,15 +31,16 @@ def yeni_ilani_bul():
         page = context.new_page()
         
         try:
-            print(f"[i] S sayfasına gidiliyor: {URL}")
+            print(f"[i] SBB sayfasına bağlanılıyor: {URL}")
+            # Cloudflare korumasını geçmesi için sayfanın tam yüklenmesini bekliyoruz
             page.goto(URL, timeout=60000, wait_until="networkidle")
             
-            # Cloudflare veya JS yükleme ekranı varsa birkaç saniye bekle
-            page.wait_for_timeout(5000)
+            # Ekstra güvenlik kontrolü için 4 saniye bekleme
+            page.wait_for_timeout(4000)
             
-            print("[+] Sayfa yüklendi, ilanlar analiz ediliyor...")
+            print("[+] Sayfa yüklendi, ilanlar taranıyor...")
             
-            # Sayfadaki tüm bağlantıları ve metinleri topla
+            # Sayfadaki tüm bağlantıları ve başlıkları topluyoruz
             ilanlar_data = page.evaluate("""() => {
                 const links = Array.from(document.querySelectorAll('a'));
                 return links.map(a => ({
