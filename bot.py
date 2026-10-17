@@ -2,10 +2,9 @@ import os
 import time
 import requests
 
-# Token'ın başına 'r' harfi koyarak ham metin (raw string) olarak tanımlıyoruz
-ACCESS_TOKEN = r"EAAdx2vMKhsQBSzL14RS5gvhKlJExuZAxViuNThTBFEAqljitBtBvQcYSGoDcnZCqjIjHnAuYBnlnHqo9b49GGwlS5u5j6dWxiuH5FSM7ooIWbHtPKVNQb5mdb6ZBcUrQsMxPkky2B2gjtdk8NZBEUlqgV2if49U2S3hgMfzhzA8SzjZAhWUpRAhfvcFDIJVkF7LamqOZAd7HSM01i92PTe6YF3VCXnzZCVCoEb5sf98t1VFiBDlkbndHIPOTXzrVih3PZAhoUjlleUZAo"
-INSTAGRAM_ACCOUNT_ID = "17841459578691000"
-
+# GitHub Secrets üzerinden veya doğrudan tanımlı token ve ID
+ACCESS_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "EAAdx2vMKhsQBSzL14RS5gvhKlJExuZAxViuNThTBFEAqljitBtBvQcYSGoDcnZCqjIjHnAuYBnlnHqo9b49GGwlS5u5j6dWxiuH5FSM7ooIWbHtPKVNQb5mdb6ZBcUrQsMxPkky2B2gjtdk8NZBEUlqgV2if49U2S3hgMfzhzA8SzjZAhWUpRAhfvcFDIJVkF7LamqOZAd7HSM01i92PTe6YF3VCXnzZCVCoEb5sf98t1VFiBDlkbndHIPOTXzrVih3PZAhoUjlleUZAo")
+INSTAGRAM_ACCOUNT_ID = os.getenv("INSTAGRAM_ACCOUNT_ID", "17841459578691000")
 
 def post_to_instagram(image_url, caption):
     """Instagram Graph API kullanarak görsel ve açıklama paylaşır."""
@@ -30,7 +29,7 @@ def post_to_instagram(image_url, caption):
     creation_id = res_data["id"]
     print(f"[+] Başarılı! Konteyner ID: {creation_id}")
 
-    # Instagram'ın görseli işlemesi için kısa bir süre bekliyoruz
+    # Instagram'ın görseli işlemesi için 5 saniye bekleme
     print("[*] Instagram görseli işliyor, 5 saniye bekleniyor...")
     time.sleep(5)
 
@@ -51,15 +50,3 @@ def post_to_instagram(image_url, caption):
     else:
         print(f"[-] Hata (Yayınlama): {pub_data}")
         return False
-
-
-if __name__ == "__main__":
-    # Test Amaçlı Örnek İlan Paylaşımı
-    TEST_IMAGE = "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=1080"
-    TEST_CAPTION = """📢 KAMU PERSONELİ ALIM İLANI (TEST)
-
-Bu gönderi Python ve Instagram Graph API ile tamamen otomatik olarak paylaşılmıştır.
-
-#kamuilanı #kpss #memuralımı #kamuilansbb"""
-
-    post_to_instagram(TEST_IMAGE, TEST_CAPTION)

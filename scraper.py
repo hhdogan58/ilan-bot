@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import json
 import os
 
-# Resmi SBB İlan Portalı
 URL = "https://kamuilan.sbb.gov.tr/"
 DOSYA_PAYLASILANLAR = "paylasilanlar.json"
 
@@ -34,7 +33,6 @@ def yeni_ilani_bul():
         print("[+] SBB ana sayfası başarıyla getirildi, ilanlar analiz ediliyor...")
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # SBB sitesindeki ilan bağlantılarını ve kartlarını tarıyoruz
         linkler = soup.find_all('a', href=True)
         paylasilanlar = paylasilanlari_yukle()
         
@@ -42,12 +40,10 @@ def yeni_ilani_bul():
             baslik = link_tag.get_text(strip=True)
             link = link_tag['href']
             
-            # Anlamlı uzunlukta ve ilan barındıran bağlantıları filtrele
             if not link or len(baslik) < 15:
                 continue
                 
             if 'ilan' in link.lower() or 'detay' in link.lower() or 'Goster' in link:
-                # SBB link yapısını tam adrese dönüştürme
                 if link.startswith('http'):
                     ilan_url = link
                 elif link.startswith('/'):
@@ -59,8 +55,6 @@ def yeni_ilani_bul():
                 
                 if ilan_id not in paylasilanlar:
                     print(f"[+] SBB'de yeni ilan bulundu: {baslik[:60]}...")
-                    
-                    # Şık kurumsal varsayılan görsel
                     gorsel_url = "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=1080"
                     
                     return {
